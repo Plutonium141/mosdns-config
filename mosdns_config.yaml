@@ -1,0 +1,111 @@
+log:
+  level: info
+  file: "/tmp/mosdns.txt" #可能需要修改日志路径mosdns才能运行
+
+data_providers:
+  - tag: geosite
+    file: /usr/share/v2ray/geosite.dat #可能需要修改geosite文件的路径mosdns才能运行
+    auto_reload: true
+  - tag: geoip
+    file: /usr/share/v2ray/geoip.dat #可能需要修改geoip文件的路径mosdns才能运行
+    auto_reload: true
+
+plugins:
+  # 缓存
+  - tag: cache
+    type: cache
+    args:
+      size: 1024
+
+  # 保留应答的ip保留时间为ttl(秒)默认为10
+  - tag: save_reverse_lookup
+    type: reverse_lookup
+    args:
+      ttl: 10
+
+  # 转发至本地dns服务器的插件,请填写速度追快的dns服务器,比如运营商的dns建议使用udp协议
+  - tag: forward_local
+    type: fast_forward
+    args:
+      upstream:
+        - addr: 223.5.5.5
+        - addr: 114.114.114.114
+
+  # 转发至远程dns服务器的插件
+  - tag: forward_remote
+    type: fast_forward
+    args:
+      upstream:
+        - addr: https://8.8.8.8/dns-query
+          idle_timeout: 30
+          #enable_http3: true
+
+  # 匹配国内域名的插件
+  - tag: query_is_local_domain
+    type: query_matcher
+    args:
+      domain:
+        - 'provider:geosite:cn'
+
+  # 匹配非国内域名的插件
+  - tag: query_is_non_local_domain
+    type: query_matcher
+    args:
+      domain:
+        - 'provider:geosite:geolocation-!cn'
+
+  # 匹配本地 ip 的插件
+  - tag: response_has_local_ip
+    type: response_matcher
+    args:
+      ip:
+        - 'provider:geoip:cn'
+
+  # 主要的运行逻辑插件
+  # sequence 插件中调用的插件 tag 必须在 sequence 前定义(就是上面),否则 sequence 找不到对应插件。
+  - tag: main_sequence
+    type: sequence
+    args:
+      exec:
+        # 保留ip到dns记录方便ip反查dns
+        - save_reverse_lookup
+
+        # 缓存，如果已经有其他程序开启了dns缓存则应该关闭(默认已用井号注释，如需启用请删除井号)
+        #- cache
+
+        # 已知的国内域名用本地服务器解析
+        - if: query_is_local_domain
+          exec:
+            - forward_local #交给本地dns处理
+            - _return
+
+        # 已知的非国内域名用远程服务器解析
+        - if: query_is_non_local_domain
+          exec:
+            - _prefer_ipv4 #优先ipv4,如果域名为ipv4和ipv6双栈则抛弃ipv6结果
+            - forward_remote #交给远程dns处理
+            - _return
+
+          # 剩下的未知域名用 IP 分流。
+          # 这里借助了 `fallback` 工作机制。
+          # 先使用 primary 从本地dns获取应答，如果为有效应答且不是国内ip则丢弃非本地 IP 的结果
+        - primary:
+            - forward_local #交给本地dns处理
+            - if: "(! response_has_local_ip) && [_response_valid_answer]"
+              exec:
+                - _drop_response
+          
+          secondary: # secondary 从远程dns获取应答。
+            - _prefer_ipv4 #优先ipv4,同上
+            - forward_remote #交给远程dns处理
+       
+          fast_fallback: 200
+          # 单位: 毫秒(ms)这里建议设置成本地dns服务器正常延时的 2~5 倍。
+          # 如果本地dns返回结果时间超过设定值将使用secondary组解析结果(如果本地dns应答被丢弃相当于没有回应),如果本地dns超过这个时间还没响应，可以认为本地的上游dns出现了问题
+
+servers:
+  - exec: main_sequence
+    listeners:
+      - protocol: udp
+        addr: 0.0.0.0:5301
+    #mosdns监听的协议,地址和端口,可以有多个 默认监听协议udp任意ip的5301端口
