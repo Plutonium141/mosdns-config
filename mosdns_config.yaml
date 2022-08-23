@@ -15,7 +15,9 @@ plugins:
   - tag: cache
     type: cache
     args:
-      size: 1024
+      size: 4096
+      lazy_cache_ttl: 259200
+      lazy_cache_reply_ttl: 10
 
   # 保留应答的ip保留时间为ttl(秒)默认为10
   - tag: save_reverse_lookup
@@ -23,7 +25,7 @@ plugins:
     args:
       ttl: 10
 
-  # 转发至本地dns服务器的插件,请填写速度追快的dns服务器,比如运营商的dns建议使用udp协议
+  # 转发至本地dns服务器的插件,请填写速度最快的dns服务器,比如运营商的dns建议使用udp协议,一两个就行不用太多
   - tag: forward_local
     type: fast_forward
     args:
@@ -31,7 +33,7 @@ plugins:
         - addr: 223.5.5.5
         - addr: 114.114.114.114
 
-  # 转发至远程dns服务器的插件
+  # 转发至远程dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行，推荐使用https请求可防污染
   - tag: forward_remote
     type: fast_forward
     args:
@@ -39,6 +41,8 @@ plugins:
         - addr: https://8.8.8.8/dns-query
           idle_timeout: 30
           #enable_http3: true
+          #idle_timeout为空连接复用时间(秒)可以加快短时间内的多次https dns请求时间,原理:建立连接后保持一段时间再断开如有dns请求可直接使用该连接无需频繁握手
+          #开启enable_http3可以加快https的连接速度,注意http3使用443端口的udp协议(即quic),使用前确保443端口的udp处于畅通状态且dns服务器支持(8.8.8.8和1.1.1.1均支持)否则将无法建立连接
 
   # 匹配国内域名的插件
   - tag: query_is_local_domain
