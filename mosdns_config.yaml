@@ -15,7 +15,7 @@ plugins:
   - tag: cache
     type: cache
     args:
-      size: 4096
+      size: 40960
       lazy_cache_ttl: 259200
       lazy_cache_reply_ttl: 10
 
@@ -25,7 +25,7 @@ plugins:
     args:
       ttl: 10
 
-  # 转发至本地dns服务器的插件,请填写速度最快的dns服务器,比如运营商的dns建议使用udp协议,一两个就行不用太多
+  # 转发至国内dns服务器的插件,请填写速度最快的dns服务器,比如运营商的dns建议使用udp协议,一两个就行不用太多
   - tag: forward_local
     type: fast_forward
     args:
@@ -33,16 +33,14 @@ plugins:
         - addr: 223.5.5.5
         - addr: 114.114.114.114
 
-  # 转发至远程dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行，推荐使用https请求可防污染
+  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行，推荐使用https请求可防污染
   - tag: forward_remote
     type: fast_forward
     args:
       upstream:
         - addr: https://8.8.8.8/dns-query
           idle_timeout: 30
-          #enable_http3: true
           #idle_timeout为空连接复用时间(秒)可以加快短时间内的多次https dns请求时间,原理:建立连接后保持一段时间再断开如有dns请求可直接使用该连接无需频繁握手
-          #开启enable_http3可以加快https的连接速度,注意http3使用443端口的udp协议(即quic),使用前确保443端口的udp处于畅通状态且dns服务器支持(8.8.8.8和1.1.1.1均支持)否则将无法建立连接
 
   # 匹配国内域名的插件
   - tag: query_is_local_domain
@@ -58,12 +56,24 @@ plugins:
       domain:
         - 'provider:geosite:geolocation-!cn'
 
-  # 匹配本地 ip 的插件
+  # 匹配国内 ip 的插件
   - tag: response_has_local_ip
     type: response_matcher
     args:
       ip:
         - 'provider:geoip:cn'
+        
+  # 匹配dns泄露测试网站域名
+  - tag: query_is_dnsleak_domain
+    type: query_matcher
+    args:
+      domain:
+        - 'domain:browserleaks.org'
+        - 'domain:dnsleaktest.com'
+        - 'domain:dnsleak.asn247.net'
+        - 'domain:whrq.net'
+        - 'domain:ipleak.net'
+
 
   # 主要的运行逻辑插件
   # sequence 插件中调用的插件 tag 必须在 sequence 前定义(就是上面),否则 sequence 找不到对应插件。
@@ -73,39 +83,46 @@ plugins:
       exec:
         # 保留ip到dns记录方便ip反查dns
         - save_reverse_lookup
+        
+        # 把部分检查dns泄露的测试域名直接分流至海外dns组,看着舒服点
+        # 因为网站测试用的随机生成域名很可能不在geosite数据库里所以会使用fallback机制查询最后导致无论如何测试都存在dns泄露的情况(实际情况是大部分的域名都已经分流)
+        - if: query_is_dnsleak_domain
+          exec:
+            - _prefer_ipv4
+            - forward_remote
+            - _return
 
         # 缓存，如果已经有其他程序开启了dns缓存则应该关闭(默认已用井号注释，如需启用请删除井号)
         #- cache
 
-        # 已知的国内域名用本地服务器解析
+        # 已知的国内域名用本地dns组解析
         - if: query_is_local_domain
           exec:
-            - forward_local #交给本地dns处理
+            - forward_local #交给本地dns组处理
             - _return
 
-        # 已知的非国内域名用远程服务器解析
+        # 已知的非国内域名用海外dns组解析
         - if: query_is_non_local_domain
           exec:
             - _prefer_ipv4 #优先ipv4,如果域名为ipv4和ipv6双栈则抛弃ipv6结果
-            - forward_remote #交给远程dns处理
+            - forward_remote #交给海外dns组处理
             - _return
 
-          # 剩下的未知域名用 IP 分流。
-          # 这里借助了 `fallback` 工作机制。
-          # 先使用 primary 从本地dns获取应答，如果为有效应答且不是国内ip则丢弃非本地 IP 的结果
+          # 剩下的未知域名不再分流,将采用fallback机制选择最合适的结果
+          # 国内组与海外组并发查询域名,如果结果不是国内ip并且为有效应答则丢弃国内dns组的结果
         - primary:
-            - forward_local #交给本地dns处理
+            - forward_local #交给国内dns组处理
             - if: "(! response_has_local_ip) && [_response_valid_answer]"
               exec:
-                - _drop_response
+                - _drop_response # 符合条件将丢弃结果
           
-          secondary: # secondary 从远程dns获取应答。
+          secondary:
             - _prefer_ipv4 #优先ipv4,同上
-            - forward_remote #交给远程dns处理
+            - forward_remote #交给海外dns组处理
        
           fast_fallback: 200
           # 单位: 毫秒(ms)这里建议设置成本地dns服务器正常延时的 2~5 倍。
-          # 如果本地dns返回结果时间超过设定值将使用secondary组解析结果(如果本地dns应答被丢弃相当于没有回应),如果本地dns超过这个时间还没响应，可以认为本地的上游dns出现了问题
+          # 如果国内dns组返回结果时间超过设定值将使用海外dns组的解析结果(如果本地dns组应答被丢弃相当于没有回应),如果本地dns超过这个时间还没响应，可以认为本地的上游dns出现了问题
 
 servers:
   - exec: main_sequence
