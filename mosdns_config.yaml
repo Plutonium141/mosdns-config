@@ -19,7 +19,7 @@ plugins:
       lazy_cache_ttl: 259200
       lazy_cache_reply_ttl: 10
 
-  # 保留应答的ip保留时间为ttl(秒)默认为10
+  # 保留应答的ip保留时间为ttl(秒)默认为10(实用性功能,可能没有效果)
   - tag: save_reverse_lookup
     type: reverse_lookup
     args:
@@ -33,14 +33,17 @@ plugins:
         - addr: 223.5.5.5
         - addr: 114.114.114.114
 
-  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行，推荐使用https请求可防污染
+  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行,推荐使用tls或者https请求可防污染(https类型可能无法使用,可以改用tls)
   - tag: forward_remote
     type: fast_forward
     args:
       upstream:
         - addr: https://8.8.8.8/dns-query
-          idle_timeout: 30
+          idle_timeout: 60
           #idle_timeout为空连接复用时间(秒)可以加快短时间内的多次https dns请求时间,原理:建立连接后保持一段时间再断开如有dns请求可直接使用该连接无需频繁握手
+        - addr: tls://8.8.8.8:853
+          enable_pipeline: true
+          #enable_pipeline为针对tcp与dns over tls的连接复用开关,可以减少握手次数降低延迟
 
   # 匹配国内域名的插件
   - tag: query_is_local_domain
