@@ -38,7 +38,7 @@ plugins:
     type: fast_forward
     args:
       upstream:
-        - addr: https://8.8.8.8/dns-query
+        - addr: https://1.1.1.1/dns-query
           idle_timeout: 60
           #idle_timeout为空连接复用时间(秒)可以加快短时间内的多次https dns请求时间,原理:建立连接后保持一段时间再断开如有dns请求可直接使用该连接无需频繁握手
         - addr: tls://8.8.8.8:853
