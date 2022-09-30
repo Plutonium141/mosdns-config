@@ -33,7 +33,7 @@ plugins:
         - addr: 223.5.5.5
         - addr: 114.114.114.114
 
-  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行,推荐使用tls或者https请求可防污染(https类型可能无法使用,可以改用tls)
+  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行,推荐使用tls或者https请求均可防污染(https类型可能无法使用,可以改用tls)
   - tag: forward_remote
     type: fast_forward
     args:
