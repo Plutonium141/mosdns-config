@@ -1,7 +1,7 @@
 # Plutonium的mosdns配置
 [mosdns食用方法](https://irine-sistiana.gitbook.io/mosdns-wiki/)
   
-## 只有正确的dns配置才可以优化上网体验, 类似的dns转发器越少越好
+## 只有正确的dns配置才可以优化上网体验, 类似的dns转发器越少越好,而不是无意义的dns+缓存套娃
 ### 特点
 - 使用geosite分流让域名去该去的地方解析, 结果纯净无污染
 - 仅抛弃海外ipv4ipv6双栈域名的ipv6记录, 无需关闭ipv6玩起代理更省心
