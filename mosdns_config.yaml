@@ -88,7 +88,7 @@ plugins:
         - save_reverse_lookup
         
         # 把部分检查dns泄露的测试域名直接分流至海外dns组,看着舒服点
-        # 因为网站测试用的随机生成域名很可能不在geosite数据库里所以会使用fallback机制查询最后导致无论如何测试都存在dns泄露的情况(实际情况是大部分的域名都已经分流)
+        # 因为网站测试用的随机生成域名很可能不在geosite数据库里,所以会使用fallback机制查询,最后导致无论如何测试都存在dns泄露的情况(实际情况是大部分的域名都已经分流)
         - if: query_is_dnsleak_domain
           exec:
             - _prefer_ipv4
