@@ -19,11 +19,11 @@ plugins:
       lazy_cache_ttl: 259200
       lazy_cache_reply_ttl: 10
 
-  # 保留应答的ip保留时间为ttl(秒)默认为10(实用性功能,可能没有效果)
+  # 保留应答的ip保留时间为ttl(秒)(实验性功能,可能没有效果)
   - tag: save_reverse_lookup
     type: reverse_lookup
     args:
-      ttl: 10
+      ttl: 120
 
   # 转发至国内dns服务器的插件,请填写速度最快的dns服务器,比如运营商的dns建议使用udp协议,一两个就行不用太多
   - tag: forward_local
