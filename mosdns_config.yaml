@@ -1,13 +1,16 @@
 log:
   level: info
-  file: "/tmp/mosdns.txt" #可能需要修改日志路径mosdns才能运行
+  file: "/tmp/mosdns.txt"
+#可能需要修改日志路径mosdns才能运行
 
 data_providers:
   - tag: geosite
-    file: /usr/share/v2ray/geosite.dat #可能需要修改geosite文件的路径mosdns才能运行
+    file: /usr/share/v2ray/geosite.dat
+#可能需要修改geosite文件的路径mosdns才能运行
     auto_reload: true
   - tag: geoip
-    file: /usr/share/v2ray/geoip.dat #可能需要修改geoip文件的路径mosdns才能运行
+    file: /usr/share/v2ray/geoip.dat
+#可能需要修改geoip文件的路径mosdns才能运行
     auto_reload: true
 
 plugins:
