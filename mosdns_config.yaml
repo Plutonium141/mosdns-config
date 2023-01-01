@@ -5,17 +5,37 @@ log:
 
 data_providers:
   - tag: geosite
-    file: /usr/share/v2ray/geosite.dat
-#可能需要修改geosite文件的路径mosdns才能运行
+    file: "/usr/share/v2ray/geosite.dat"
     auto_reload: true
+    
   - tag: geoip
-    file: /usr/share/v2ray/geoip.dat
-#可能需要修改geoip文件的路径mosdns才能运行
+    file: "/usr/share/v2ray/geoip.dat"
     auto_reload: true
+    
+  - tag: adlist
+    file: "./rule/serverlist.txt"
+    auto_reload: true
+
+  - tag: whitelist
+    file: "./rule/whitelist.txt"
+    auto_reload: true
+
+  - tag: hosts
+    file: "./rule/hosts.txt"
+    auto_reload: true
+
+  - tag: blocklist
+    file: "./rule/blocklist.txt"
+    auto_reload: true
+ 
+  - tag: redirect
+    file: "./rule/redirect.txt"
+    auto_reload: true
+#请确保以上文件存在否则mosdns可能无法运行(如果你不是在openwrt的mosdns里使用可能会出现这个问题,可以尝试修改文件路径或创建对应的文件解决)
 
 plugins:
   # 缓存
-  - tag: cache
+  - tag: "cache"
     type: cache
     args:
       size: 40960
@@ -23,21 +43,22 @@ plugins:
       lazy_cache_reply_ttl: 10
 
   # 保留应答的ip保留时间为ttl(秒)(实验性功能,可能没有效果)
-  - tag: save_reverse_lookup
+  - tag: "save_reverse_lookup"
     type: reverse_lookup
     args:
-      ttl: 120
+      ttl: 1800
+      handle_ptr: true
 
   # 转发至国内dns服务器的插件,请填写速度最快的dns服务器,比如运营商的dns建议使用udp协议,一两个就行不用太多
-  - tag: forward_local
+  - tag: "forward_local"
     type: fast_forward
     args:
       upstream:
         - addr: 223.5.5.5
         - addr: 114.114.114.114
 
-  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行,不使用代理时推荐使用tls或者https请求均可防污染防泄露(https类型可能无法使用,可以改用tls，如果可以确保海外组dns可以走代理,那么用哪个协议都可以)
-  - tag: forward_remote
+  # 转发至海外dns服务器的插件,填写海外的dns服务器,建议使用1.1.1.1或者8.8.8.8,一两个就行,不使用代理时推荐使用tls或者https请求均可防污染防泄露(如果可以确保海外组dns可以走代理,那么用哪个协议都可以)
+  - tag: "forward_remote"
     type: fast_forward
     args:
       upstream:
@@ -49,37 +70,77 @@ plugins:
           #enable_pipeline为针对tcp与dns over tls的连接复用开关,可以减少握手次数降低延迟
 
   # 匹配国内域名的插件
-  - tag: query_is_local_domain
+  - tag: "query_is_local_domain"
     type: query_matcher
     args:
       domain:
-        - 'provider:geosite:cn'
+        - "provider:geosite:cn"
 
-  # 匹配非国内域名的插件
-  - tag: query_is_non_local_domain
+  # 匹配海外常用域名的插件
+  - tag: "query_is_non_local_domain"
     type: query_matcher
     args:
       domain:
-        - 'provider:geosite:geolocation-!cn'
+        - "provider:geosite:geolocation-!cn"
 
   # 匹配国内 ip 的插件
-  - tag: response_has_local_ip
+  - tag: "response_has_local_ip"
     type: response_matcher
     args:
       ip:
-        - 'provider:geoip:cn'
+        - "provider:geoip:cn"
         
   # 匹配dns泄露测试网站域名
-  - tag: query_is_dnsleak_domain
+  - tag: "query_is_dnsleak_domain"
     type: query_matcher
     args:
       domain:
-        - 'domain:browserleaks.org'
-        - 'domain:dnsleaktest.com'
-        - 'domain:dnsleak.asn247.net'
-        - 'domain:whrq.net'
-        - 'domain:ipleak.net'
+        - "domain:browserleaks.org"
+        - "domain:dnsleaktest.com"
+        - "domain:dnsleak.asn247.net"
+        - "domain:whrq.net"
+        - "domain:ipleak.net"
+        
+  # 匹配白名单列表
+  - tag: "query_is_whitelist_domain"
+    type: query_matcher
+    args:
+      domain:
+        - "provider:whitelist"
 
+  # 匹配黑名单列表
+  - tag: "query_is_blocklist_domain"
+    type: query_matcher
+    args:
+      domain:
+        - "provider:blocklist" 
+
+  # 匹配hosts文件(这个不是系统的hosts文件,mosndns的hosts文件格式有些不一样,可以去 https://irine-sistiana.gitbook.io/mosdns-wiki/mosdns/cha-jian-ji-qi-can-shu#hosts-yu-ming-ying-she-ip 查看)
+  - tag: "query_is_hosts_domain"
+    type: hosts
+    args:
+      hosts:
+        - "provider:hosts"
+
+  # 匹配重定向域名
+  - tag: "query_is_redirect_domain"
+    type: redirect
+    args:
+      rule:
+        - "provider:redirect"
+
+  # 匹配65类型的请求
+  - tag: "query_is_qtype65"
+    type: query_matcher
+    args:
+      qtype: [65]
+
+  # 匹配广告域名
+  - tag: "query_is_ad_domain"
+    type: query_matcher
+    args:
+      domain:
+        - "provider:adlist"
 
   # 主要的运行逻辑插件
   # sequence 插件中调用的插件 tag 必须在 sequence 前定义(就是上面),否则 sequence 找不到对应插件。
@@ -87,35 +148,57 @@ plugins:
     type: sequence
     args:
       exec:
+        # 去除ecs
+        - _no_ecs
+        
+        # 优化大杂烩 具体内容建议去 https://irine-sistiana.gitbook.io/mosdns-wiki/mosdns/cha-jian-ji-qi-can-shu#miscoptm-zhuan-fa-fu-wu-qi-you-hua-da-za-hui-shi-yan-xing-v4.0+ 查看
+        - _misc_optm
+        
+        # 如果匹配 则按照hosts和重定向列表的内容应答
+        - query_is_hosts_domain
+        - query_is_redirect_domain
+        
         # 保留ip到dns记录方便ip反查dns
         - save_reverse_lookup
         
         # 把部分检查dns泄露的测试域名直接分流至海外dns组,看着舒服点
         # 因为网站测试用的随机生成域名很可能不在geosite数据库里,所以会使用fallback机制查询,最后导致无论如何测试都存在dns泄露的情况(实际情况是大部分的域名都已经分流)
-        - if: query_is_dnsleak_domain
+        - if: "query_is_dnsleak_domain"
           exec:
             - _prefer_ipv4
             - forward_remote
+            - _return
+        
+        # 将白名单列表内的域名转发到国内分组
+        - if: "query_is_whitelist_domain"
+          exec:
+            - forward_local
+            - _return
+            
+        # 将黑名单,广告以及qtype65类型的请求屏蔽
+        - if: "query_is_blocklist_domain || query_is_ad_domain || query_is_qtype65"
+          exec:
+            - _new_nxdomain_response
             - _return
 
         # 缓存，如果已经有其他程序开启了dns缓存则应该关闭(默认已用井号注释，如需启用请删除井号)
         #- cache
 
         # 已知的国内域名用本地dns组解析
-        - if: query_is_local_domain
+        - if: "query_is_local_domain"
           exec:
             - forward_local #交给本地dns组处理
             - _return
 
         # 已知的非国内域名用海外dns组解析
-        - if: query_is_non_local_domain
+        - if: "query_is_non_local_domain"
           exec:
             - _prefer_ipv4 #优先ipv4,如果域名为ipv4和ipv6双栈则抛弃ipv6结果
             - forward_remote #交给海外dns组处理
             - _return
 
-          # 剩下的未知域名不再分流,将采用fallback机制选择最合适的结果
-          # 国内组与海外组并发查询域名,如果结果不是国内ip并且为有效应答则丢弃国内dns组的结果
+        # 剩下的未知域名不再分流,将采用fallback机制选择最合适的结果
+        # 国内组与海外组并发查询域名,如果结果不是国内ip并且为有效应答则丢弃国内dns组的结果
         - primary:
             - forward_local #交给国内dns组处理
             - if: "(! response_has_local_ip) && [_response_valid_answer]"
@@ -128,7 +211,7 @@ plugins:
        
           fast_fallback: 200
           # 单位: 毫秒(ms)这里建议设置成本地dns服务器正常延时的 2~5 倍。
-          # 如果国内dns组返回结果时间超过设定值将使用海外dns组的解析结果(如果本地dns组应答被丢弃相当于没有回应),如果本地dns超过这个时间还没响应，可以认为本地的上游dns出现了问题
+          # 如果国内dns组返回结果时间超过设定值将使用海外dns组的解析结果(如果本地dns组应答被丢弃相当于没有回应)
 
 servers:
   - exec: main_sequence
