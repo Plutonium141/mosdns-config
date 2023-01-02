@@ -217,5 +217,7 @@ servers:
   - exec: main_sequence
     listeners:
       - protocol: udp
-        addr: 0.0.0.0:5301
-    #mosdns监听的协议,地址和端口,可以有多个 默认监听协议udp任意ip的5301端口
+        addr: ":5301"
+      - protocol: tcp
+        addr: ":5301"
+    #mosdns监听的协议,地址和端口,可以有多个 默认监听5301端口
